@@ -1,0 +1,124 @@
+import tkinter as tk
+import speech_recognition as sr
+import pyttsx3
+
+#  Text-to-Speech Engine
+engine = pyttsx3.init()
+engine.setProperty('rate', 150)
+
+#  Questions
+questions = [
+    "What is Artificial Intelligence?",
+    "Define Machine Learning.",
+    "List three applications of AI."
+]
+
+answers = {}
+current_question_index = 0
+
+#  Speak Text
+def instruct(text):
+    engine.say(text)
+    engine.runAndWait()
+
+# Speak Question
+def read_question(text):
+    engine.say(text)
+    engine.runAndWait()
+
+#  Get Command
+def get_command():
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        instruct("Say 'start exam' to begin.")
+        recognizer.adjust_for_ambient_noise(source)
+        try:
+            audio = recognizer.listen(source, timeout=5, phrase_time_limit=5)
+            command = recognizer.recognize_google(audio)
+            return command.lower()
+        except sr.WaitTimeoutError:
+            instruct("You didn't speak in time.")
+            return ""
+        except sr.UnknownValueError:
+            instruct("Sorry, I couldn't understand.")
+            return ""
+        except sr.RequestError:
+            instruct("Speech service error.")
+            return ""
+
+# Get Answer
+def get_answer():
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        instruct("Please speak your answer. You have 10 seconds.")
+        recognizer.adjust_for_ambient_noise(source)
+        try:
+            audio = recognizer.listen(source, timeout=5, phrase_time_limit=10)
+            text = recognizer.recognize_google(audio)
+            answer_entry.delete("1.0", tk.END)
+            answer_entry.insert(tk.END, text)
+        except sr.WaitTimeoutError:
+            instruct("You didn’t speak in time.")
+        except sr.UnknownValueError:
+            instruct("Could not understand audio.")
+        except sr.RequestError:
+            instruct("Speech service error.")
+
+# Show Question
+def show_question():
+    question = questions[current_question_index]
+    question_label.config(text=f"Question {current_question_index + 1}: {question}")
+    answer_entry.delete("1.0", tk.END)
+    root.after(500, lambda: read_question(question))
+
+#  Next Question
+def next_question():
+    global current_question_index
+    answer = answer_entry.get("1.0", tk.END).strip()
+    if answer:
+        answers[f"Question {current_question_index + 1}"] = answer
+    else:
+        instruct("Please provide an answer before continuing.")
+        return
+
+    current_question_index += 1
+    if current_question_index < len(questions):
+        show_question()
+    else:
+        finish_exam()
+
+#  Finish Exam
+def finish_exam():
+    with open("exam_answers.txt", "w") as f:
+        for q, a in answers.items():
+            f.write(f"{q}:\nAnswer: {a}\n\n")
+    instruct("All answers saved. Thank you!")
+    root.destroy()
+
+# 🟢 Start GUI
+def start():
+    global root, question_label, answer_entry
+    root = tk.Tk()
+    root.title("Voice-Based Quiz")
+    root.geometry("600x400")
+
+    question_label = tk.Label(root, text="", font=("Helvetica", 16), wraplength=550, justify="left")
+    question_label.pack(pady=20)
+
+    answer_entry = tk.Text(root, height=6, width=60, font=("Helvetica", 12))
+    answer_entry.pack(pady=10)
+
+    tk.Button(root, text="Voice Answer", command=get_answer, font=("Helvetica", 12)).pack(pady=5)
+    tk.Button(root, text="Next", command=next_question, font=("Helvetica", 14)).pack(pady=10)
+
+    root.after(1000, show_question)
+    root.mainloop()
+
+#  MAIN
+if __name__ == "__main__":
+    command = get_command()
+    print("You said:", command)  # Optional debug
+    if "start" in command:
+        start()
+    else:
+        instruct("Say 'start exam' to begin.")
